@@ -27,12 +27,16 @@
                                             <th class="text-center">Imagen</th>
                                             <th class="text-center">URL</th>
                                             <th class="text-center">Categoria</th>
-                                            <th class="text-center">Opciones</th>
+                                            <?php if (in_array('proyect', $user->editar)): ?>
+                                                <th class="text-center">Opciones</th>
+                                            <?php endif; ?>
+
                                         </tr>
                                     </thead>
 
                                     <tbody>
                                         <?php
+                                        // debug($user);
                                         foreach ($proyectos as $key => $proyecto) {
                                             $categoria_proyecto = null;
                                             foreach ($categorias as $categoria) {
@@ -50,13 +54,15 @@
                                                     <td class="text-center"><a href="<?= ($proyecto->img) ? $proyecto->img : '#'; ?>" target="_blank">Ver</a></td>
                                                     <td class="text-center"><a href="<?= ($proyecto->url) ? $proyecto->url : '#'; ?>" target="_blank">Ver</a></td>
                                                     <td><?= $categoria_proyecto->nombre; ?></td>
-                                                    <td class="text-center d-flex justify-content-center gap-1" colspan="">
-                                                        <a href="admin/update/proyect/<?= $proyecto->id; ?>"><i class="fa-sharp fa-solid fa-pen-to-square "></i></a>
-                                                        <a href="" onclick="deleteproyect(<?= $proyecto->id; ?>)" data-bs-toggle="modal" data-bs-target="#exampleModal"><i class="fa-sharp fa-solid fa-trash"></i></a>
-                                                        <div class="form-check form-switch">
-                                                            <input class="form-check-input ch-proyect-<?= $proyecto->id; ?>" onchange="changeactivo(<?= $proyecto->id; ?>)" type="checkbox" role="switch" id="flexSwitchCheckChecked" <?= ($proyecto->activo) ? 'checked' : ''; ?>>
-                                                        </div>
-                                                    </td>
+                                                    <?php if (in_array('proyect', $user->editar)): ?>
+                                                        <td class="text-center d-flex justify-content-center gap-1" colspan="">
+                                                            <a href="admin/update/proyect/<?= $proyecto->id; ?>"><i class="fa-sharp fa-solid fa-pen-to-square "></i></a>
+                                                            <a href="" onclick="deleteproyect(<?= $proyecto->id; ?>)" data-bs-toggle="modal" data-bs-target="#exampleModal"><i class="fa-sharp fa-solid fa-trash"></i></a>
+                                                            <div class="form-check form-switch">
+                                                                <input class="form-check-input ch-proyect-<?= $proyecto->id; ?>" onchange="changeactivo(<?= $proyecto->id; ?>)" type="checkbox" role="switch" id="flexSwitchCheckChecked" <?= ($proyecto->activo) ? 'checked' : ''; ?>>
+                                                            </div>
+                                                        </td>
+                                                    <?php endif; ?>
                                                 </tr>
                                         <?php
                                             }

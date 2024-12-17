@@ -38,6 +38,8 @@ $routes->group('admin', function ($routes) {
         'proyect',
         'usuarios',
         'roles',
+        'categorias',
+
         
     ];
     foreach ($entitySegments as $entitySegment) {
@@ -76,6 +78,8 @@ $routes->group('api', function ($routes) {
         'perfil',
         'usuarios',
         'roles',
+        'categorias',
+
 
     ];
 

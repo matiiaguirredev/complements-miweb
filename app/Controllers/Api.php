@@ -16,12 +16,6 @@ class Api extends BaseController {
     private $activo = 0;
     private $captchaUrl = 'https://www.google.com/recaptcha/api/siteverify';
 
-    private $perm = [
-        "Root" => null,
-        "Administrador" => null,
-        "UsuarioEstandar" => null,
-    ];
-
     public function __construct() {
 
         $this->db = \Config\Database::connect();
@@ -34,11 +28,6 @@ class Api extends BaseController {
             "register" => filter_var(getenv('GENERAL_REGISTER'), FILTER_VALIDATE_BOOLEAN), // esto conviente el valor de env en booleano
         ];
 
-        // debug($this->perm, false);
-        foreach ($this->perm as $key => $value) {
-            $this->perm[$key] = getenv("ROLE_ID_$key");
-        }
-        // debug($this->perm);
 
         // $this->currentDate = Time::now(); // funcion de codeige
 
@@ -50,7 +39,7 @@ class Api extends BaseController {
     public function index() {
         // $this->valToken();
         // json_debug($this->user);
-        echo view('admin/pages-404');
+        custom_error(404, $this->lang);
     }
 
     public function register() {
@@ -173,6 +162,7 @@ class Api extends BaseController {
 
         unset($checkUser->pasw); // la borramos por que no necesitamos enviarle a nadie la pasw / no se hace publica
 
+        // devuelve los datos del usuario
         json_debug($checkUser);
     }
 
@@ -200,6 +190,7 @@ class Api extends BaseController {
         $valtoken = json_decode(decode($data['token'], $this->key));
 
         if (!$valtoken) {
+            // verifica que se haya desencriptado el token
             custom_error(103, $this->lang, 'token');
         }
 
@@ -229,6 +220,13 @@ class Api extends BaseController {
         // debug($checkUser);
 
         unset($checkUser->pasw);
+
+        $checkUser->ver = explode(',', $checkUser->ver);
+        $checkUser->crear = explode(',', $checkUser->crear);
+        $checkUser->editar = explode(',', $checkUser->editar);
+        $checkUser->borrar = explode(',', $checkUser->borrar);
+
+
         json_debug($checkUser);
         // $this->user = $checkUser;
     }
@@ -237,14 +235,11 @@ class Api extends BaseController {
     public function create_proyect() {
         $this->valToken();
 
-        // intentado poner los permisos
-        $rolesAllowed = [
-            $this->perm['Root'],
-        ];
+        // json_debug($this->user);
 
-        if (!in_array($this->user->role_id, $rolesAllowed)) {
+        if (!in_array('proyect', $this->user->crear)) {
             // Sin permisos
-            custom_error(403, "es", "create/proyect");
+            custom_error(403, "es", "crear proyectos");
         }
 
         $require = [
@@ -293,18 +288,29 @@ class Api extends BaseController {
     }
 
     public function get_proyect($id = null) {
+
         $this->variables();
+        $this->valToken();
 
-        // $this->valToken(); // las unicas que no se pide el token son las consultas publicas,  login y registro
 
+        // debug($this->user);
         $query = "SELECT * FROM proyect ";
         if ($id) { // esto se utilza para consultar 1 especifico
             $query .= "WHERE id = '$id'";
         }
+
         if ($this->activo) {
             $query .= ($id) ? " AND" : " WHERE";
             $query .= " activo = 1";
         }
+
+        if (!in_array('proyect', $this->user->ver)) {
+            $query .= ($id || $this->activo) ? " AND" : " WHERE";
+            $query .= " user_id = " . $this->user->id;
+        }
+
+        // debug($query);
+
         $query = $this->db->query($query);
         $datos = $query->getResult();
 
@@ -328,6 +334,11 @@ class Api extends BaseController {
 
     public function update_proyect($id) {
         $this->valToken();
+
+        if (!in_array('proyect', $this->user->editar)) {
+            // Sin permisos
+            custom_error(403, "es", "actualizar proyectos");
+        }
 
         $query = "SELECT * FROM proyect WHERE id = '$id'";
         $query = $this->db->query($query);
@@ -376,7 +387,12 @@ class Api extends BaseController {
 
     public function delete_proyect($id) {
 
-        $this->valToken(); // las unicas que no se pide el token son las consultas publicas,  login y registro
+        $this->valToken();
+
+        if (!in_array('proyect', $this->user->borrar)) {
+            // Sin permisos
+            custom_error(403, "es", "eliminar proyectos");
+        }
 
         $query = "SELECT * FROM proyect WHERE id = '$id'";
         $query = $this->db->query($query);
@@ -399,10 +415,183 @@ class Api extends BaseController {
     }
     // FIN CRUD proyect
 
-    // CRUD USUARIOS
+    // CRUD CATEGORIAS
+    public function create_categorias() {
+        $this->valToken();
 
+        if (!in_array('categorias', $this->user->crear)) {
+            // Sin permisos
+            custom_error(403, "es", "crear categorias");
+        }
+
+        $require = [
+            "nombre" => "text",
+
+        ];
+
+
+        $valRequire = [];
+
+        foreach ($require as $name => $type) {
+            $value = $this->request->getGetPost($name);
+            if ($value) {
+                $data[$name] = validateValue($value, $type, $this->lang);
+            } else {
+                $valRequire[] = $name;
+            }
+        }
+
+        if ($valRequire) {
+            // validar error que te faltan datos
+            custom_error(101, "es", $valRequire);
+        }
+
+        $data["user_id"] = $this->user->id;
+        $data["activo"] = ($this->request->getGetPost("activo")) ? 1 : 0;
+
+        $nombre = $data['nombre'];
+
+        $query = $this->db->query("SELECT * FROM categorias WHERE nombre = '$nombre'"); // estamos chekeando si existe el usuario o emial
+        $checkRed = $query->getResult();
+        if ($checkRed) {
+            custom_error(208, $this->lang);
+        }
+
+        $insert = $this->db->table("categorias")->insert($data);
+        if (!$insert) {
+            custom_error(204, $this->lang);
+        }
+
+        $id = $this->db->insertID(); // ultimo identificador insertado !
+
+        json_debug(array_merge(["id" => $id], $data));
+    }
+
+    public function get_categorias($id = null) {
+        $this->variables();
+        $this->valToken();
+
+        $query = "SELECT * FROM categorias ";
+        if ($id) { // esto se utilza para consultar 1 especifico
+            $query .= "WHERE id = '$id'";
+        }
+        if ($this->activo) {
+            $query .= ($id) ? " AND" : " WHERE";
+            $query .= " activo = 1";
+        }
+
+        // if (!in_array('categorias', $this->user->ver)) {
+        //     // Sin permisos
+        //     // custom_error(403, "es", "update/categorias");
+        //     $query .= ($id || $this->activo) ? " AND" : " WHERE";
+        //     $query .= " user_id = " . $this->user->id;
+        // } conflicto con que la categoria y el proyecto tienen que estar creados por el mismo usuario.
+
+        $query = $this->db->query($query);
+        $datos = $query->getResult();
+
+        if (!$datos) {
+            custom_error(504, $this->lang, "categorias");
+        }
+
+        if ($id) {
+            $datos = $datos[0];
+        }
+
+        json_debug($datos);
+    }
+
+    public function update_categorias($id) {
+        $this->valToken();
+
+        if (!in_array('categorias', $this->user->editar)) {
+            // Sin permisos
+            custom_error(403, "es", "editar categorias");
+        }
+
+        $query = "SELECT * FROM categorias WHERE id = '$id'";
+        $query = $this->db->query($query);
+        $datos = $query->getResult();
+
+        if (!$datos) {
+            custom_error(504, $this->lang, "categorias");
+        }
+
+        $datos = $datos[0];
+
+        $require = [
+            "nombre" => "text",
+
+        ];
+
+        foreach ($require as $name => $type) {
+            $value = $this->request->getGetPost($name);
+            if ($value) {
+                $data[$name] = validateValue($value, $type, $this->lang);
+            }
+        }
+
+        $data["user_id"] = $this->user->id;
+        $data["activo"] = ($this->request->getGetPost("activo")) ? 1 : 0;
+
+        if ($this->request->getGetPost("nombre")) {
+            $nombre = $data['nombre'];
+            $query = $this->db->query("SELECT * FROM categorias WHERE nombre = '$nombre' AND id <> '$id'"); // estamos chekeando si existe el usuario o emial
+            $checkRed = $query->getResult();
+            if ($checkRed) {
+                custom_error(208, $this->lang);
+            }
+        }
+
+
+        $update = $this->db->table("categorias")->update($data, ["id" => $id]); // ver query de mysql para entender bien cuales son los 2 paremetros q recibimos (set y where)
+        if (!$update) {
+            custom_error(506, $this->lang, "categorias");
+        }
+
+
+        json_debug(array_merge((array)$datos, $data));
+    }
+
+    public function delete_categorias($id) {
+
+        $this->valToken(); // las unicas que no se pide el token son las consultas publicas,  login y registro
+
+        if (!in_array('categorias', $this->user->borrar)) {
+            // Sin permisos
+            custom_error(403, "es", "borrar categorias");
+        }
+
+
+        $query = "SELECT * FROM categorias WHERE id = '$id'";
+        $query = $this->db->query($query);
+        $datos = $query->getResult();
+
+        if (!$datos) {
+            custom_error(504, $this->lang, "categorias");
+        }
+
+        $delete = $this->db->table("categorias")->delete(["id" => $id]);
+        if (!$delete) {
+            custom_error(507, $this->lang, "categorias");
+        }
+
+        if ($id) {
+            $datos = $datos[0];
+        }
+
+        json_debug($datos);
+    }
+    // FIN CRUD CATEGORIAS
+
+    // CRUD USUARIOS
     public function create_usuarios() {
         $this->valToken();
+
+        if (!in_array('usuarios', $this->user->crear)) {
+            // Sin permisos
+            custom_error(403, "es", "crear usuarios");
+        }
 
         $require = [ // datos obligatorios
             "usuario" => "alias",
@@ -427,15 +616,6 @@ class Api extends BaseController {
             // validar error que te faltan datos
             custom_error(101, "es", $valRequire);
         }
-
-        // $usuario = $data['usuario'];
-        // $email = $data['email'];
-
-        // $query = $this->db->query("SELECT * FROM usuarios WHERE usuario = '$usuario' OR email = '$email'"); // estamos chekeando si existe el usuario o emial
-        // $checkUser = $query->getResult();
-        // if ($checkUser) {
-        //     custom_error(208, $this->lang);
-        // }
 
         $usuario = $data['usuario'];
         $email = $data['email'];
@@ -463,6 +643,7 @@ class Api extends BaseController {
 
         $data['pasw'] = encode($data['pasw'], $this->key);
 
+        $data["user_id"] = $this->user->id;
         $data["activo"] = ($this->request->getGetPost("activo")) ? 1 : 0;
 
         $insert = $this->db->table("usuarios")->insert($data);
@@ -483,36 +664,36 @@ class Api extends BaseController {
     }
 
     public function get_usuarios($id = null) {
-        $this->variables();
 
-        // esta hicimos con alberto, la de abajo es chatgpt
-        $query = "SELECT usuarios.*, roles.nombre AS role_nombre FROM `usuarios`, roles WHERE 1=1";
-        if ($id) { // esto se utilza para consultar 1 especifico
+        $this->variables();
+        $this->valToken();
+
+        // Validar permisos
+        if (isset($this->user->ver) && is_array($this->user->ver)) {
+            if (!in_array('usuarios', $this->user->ver)) {
+                custom_error(403, $this->lang, 'ver usuarios');
+                return; // Detener el flujo
+            }
+        }
+
+        // Consulta principal
+        $query = "SELECT usuarios.*, roles.nombre, roles.ver, roles.crear, roles.editar, roles.borrar 
+            FROM usuarios 
+            INNER JOIN roles ON usuarios.role_id = roles.id 
+            WHERE usuarios.id <> 1"; // Excluye usuario con id 1
+
+        // Si se proporciona un ID específico
+        if ($id) {
             $query .= " AND usuarios.id = '$id'";
         }
+
+        // Filtrar solo usuarios activos
         if ($this->activo) {
-            $query .= ($id) ? " AND" : "";
-            $query .= " activo = 1";
+            $query .= " AND usuarios.activo = 1";
         }
 
-        $query .= " AND usuarios.role_id = roles.id AND usuarios.id <> 1 ORDER BY `usuarios`.`id` ASC";
-
-        // devuelve esto
-        // SELECT usuarios.*, roles.nombre AS role_nombre FROM `usuarios`, roles WHERE 1=1 AND usuarios.role_id = roles.id AND usuarios.id <> 1 ORDER BY `usuarios`.`id` ASC
-
-        // json_debug($query);
-
-        // $query = "SELECT usuarios.*, roles.nombre FROM usuarios INNER JOIN roles ON usuarios.role_id = roles.id WHERE usuarios.id <> 1";
-        // if ($id) { // Esto se utiliza para consultar un usuario específico
-        //     $query .= " AND usuarios.id = '$id'";
-        // }
-
-        // if ($this->activo) {
-        //     $query .= " AND usuarios.activo = 1";
-        // }
-
-        // $query .= " ORDER BY usuarios.id ASC";
-
+        // Ordenar resultados
+        $query .= " ORDER BY usuarios.id ASC";
 
         // Ejecutar la consulta
         $query = $this->db->query($query);
@@ -521,6 +702,7 @@ class Api extends BaseController {
         // Manejo de error si no hay datos
         if (!$datos) {
             custom_error(504, $this->lang, "usuarios");
+            return;
         }
 
         // Si se proporciona un id específico, devolver solo el primer resultado
@@ -535,17 +717,32 @@ class Api extends BaseController {
     public function update_usuarios($id) {
         $this->valToken();
 
-        $query = "SELECT usuarios.*, roles.nombre AS role_nombre FROM `usuarios`, roles WHERE 1=1";
-        if ($id) { // esto se utilza para consultar 1 especifico
+        // Validar permisos
+        if (isset($this->user->editar) && is_array($this->user->editar)) {
+            if (!in_array('usuarios', $this->user->editar)) {
+                custom_error(403, $this->lang, 'editar usuarios');
+                return; // Detener el flujo
+            }
+        }
+
+        // Consulta principal
+        $query = "SELECT usuarios.*, roles.nombre, roles.ver, roles.crear, roles.editar, roles.borrar 
+            FROM usuarios 
+            INNER JOIN roles ON usuarios.role_id = roles.id 
+            WHERE usuarios.id <> 1"; // Excluye usuario con id 1
+
+        // Si se proporciona un ID específico
+        if ($id) {
             $query .= " AND usuarios.id = '$id'";
         }
+
+        // Filtrar solo usuarios activos
         if ($this->activo) {
-            $query .= ($id) ? " AND" : "";
-            $query .= " activo = 1";
+            $query .= " AND usuarios.activo = 1";
         }
 
-        $query .= " AND usuarios.role_id = roles.id AND usuarios.id <> 1 ORDER BY `usuarios`.`id` ASC";
-
+        // Ordenar resultados
+        $query .= " ORDER BY usuarios.id ASC";
 
         $query = $this->db->query($query);
         $datos = $query->getResult();
@@ -584,6 +781,7 @@ class Api extends BaseController {
             }
         }
 
+        $data["user_id"] = $this->user->id;
         $data["activo"] = ($this->request->getGetPost("activo")) ? 1 : 0;
         $data["edit_at"] = $this->currentDate;
 
@@ -604,6 +802,11 @@ class Api extends BaseController {
     public function delete_usuarios($id) {
 
         $this->valToken(); // las unicas que no se pide el token son las consultas publicas,  login y registro
+
+        if (!in_array('usuarios', $this->user->borrar)) {
+            // Sin permisos
+            custom_error(403, "es", "eliminar usuarios");
+        }
 
         $query = "SELECT * FROM usuarios WHERE id = '$id'";
         $query = $this->db->query($query);
@@ -631,6 +834,40 @@ class Api extends BaseController {
 
     public function create_roles() {
         $this->valToken();
+
+        // Validar que el usuario no intente crear roles restringidos
+        $rolesProhibidos = ['roles', 'usuarios']; // Los roles que no se pueden crear
+
+        $ver = $this->request->getGetPost('ver');
+        $crear = $this->request->getGetPost('crear');
+        $editar = $this->request->getGetPost('editar');
+        $borrar = $this->request->getGetPost('borrar');
+
+        // Dividir los valores de 'ver', 'crear', 'editar' y 'borrar' si son cadenas separadas por comas
+        $ver = explode(',', $ver);
+        $crear = explode(',', $crear);
+        $editar = explode(',', $editar);
+        $borrar = explode(',', $borrar);
+
+        // Si estos campos son arrays, vamos a combinarlos en uno solo
+        $unidos = array_merge($ver, $crear, $editar, $borrar);
+
+        // Verificar si alguno de los valores está en los roles prohibidos
+        foreach ($unidos as $role) {
+            if (in_array(strtolower(trim($role)), $rolesProhibidos)) {
+                if ($this->user->id != 1) {
+                    // Solo el admin con id 1 puede crear estos roles
+                    custom_error(403, "es", "No puedes crear el rol '$role'. Este rol está restringido.");
+                    return; // Detener el flujo
+                }
+            }
+        }
+
+
+        if (!in_array('roles', $this->user->crear)) {
+            // Sin permisos
+            custom_error(403, "es", "crear roles");
+        }
 
         $require = [ // datos obligatorios
             "nombre" => "text",
@@ -675,6 +912,7 @@ class Api extends BaseController {
             }
         }
 
+        $data["user_id"] = $this->user->id;
         $data["activo"] = ($this->request->getGetPost("activo")) ? 1 : 0;
 
         $insert = $this->db->table("roles")->insert($data);
@@ -689,19 +927,26 @@ class Api extends BaseController {
 
     public function get_roles($id = null) {
         $this->variables();
-        // $this->valToken(); // las unicas que no se pide el token son las consultas publicas,  login y registro
+        $this->valToken();
 
-        // $query = "SELECT * FROM secciones ";
-        $query = "SELECT * FROM `roles` ";
-        if ($id) { // esto se utilza para consultar 1 especifico
-            $query .= "WHERE id = '$id'";
-        }
-        if ($this->activo) {
-            $query .= ($id) ? " AND" : " WHERE";
-            $query .= " activo = 1";
+        // Validar permisos
+        if (isset($this->user->ver) && is_array($this->user->ver)) {
+            if (!in_array('roles', $this->user->ver)) {
+                custom_error(403, $this->lang, 'ver roles');
+                return; // Detener el flujo
+            }
         }
 
-        $query .= " ORDER BY `roles`.`id` ASC";
+        $query = "SELECT * FROM `roles` WHERE roles.id <> 1"; // Asegurando que id 1 no se incluya
+        if ($id) { // Si hay un ID específico
+            $query .= " AND id = '$id'"; // Agrega el filtro por id
+        }
+        if ($this->activo) { // Si se requiere filtrar por activo
+            $query .= " AND activo = 1"; // Filtra solo los activos
+        }
+
+        $query .= " ORDER BY `roles`.`id` ASC"; // Ordena por id
+
         $query = $this->db->query($query);
         $datos = $query->getResult();
 
@@ -718,6 +963,14 @@ class Api extends BaseController {
 
     public function update_roles($id) {
         $this->valToken();
+
+        // Validar permisos
+        if (isset($this->user->editar) && is_array($this->user->editar)) {
+            if (!in_array('roles', $this->user->editar)) {
+                custom_error(403, $this->lang, 'editar roles');
+                return; // Detener el flujo
+            }
+        }
 
         $query = "SELECT * FROM roles WHERE id = '$id'";
         $query = $this->db->query($query);
@@ -757,6 +1010,7 @@ class Api extends BaseController {
             }
         }
 
+        $data["user_id"] = $this->user->id;
         $data["activo"] = ($this->request->getGetPost("activo")) ? 1 : 0;
         // debug($this->request->getGetPost(), false);
         // debug($data);
@@ -775,6 +1029,11 @@ class Api extends BaseController {
     public function delete_roles($id) {
 
         $this->valToken(); // las unicas que no se pide el token son las consultas publicas,  login y registro
+
+        if (!in_array('roles', $this->user->borrar)) {
+            // Sin permisos
+            custom_error(403, "es", "eliminar roles");
+        }
 
         $query = "SELECT * FROM roles WHERE id = '$id'";
         $query = $this->db->query($query);
@@ -969,19 +1228,19 @@ class Api extends BaseController {
     public function delete_img_perfil() {
         // Obtener la ruta completa de la imagen enviada por el cliente
         $rutaCompleta = $this->request->getPost('ruta');
-        
+
         // Validación sencilla para asegurar que la ruta esté presente
         if (!$rutaCompleta) {
             return json_debug(['error' => 'La ruta de la imagen es requerida.'], 400);
         }
-    
+
         // Extraer el nombre del archivo desde la ruta completa (obtenemos solo el nombre de la imagen)
         $nombreArchivo = basename($rutaCompleta);
-    
+
         // Tabla de perfil y columnas a procesar (solo las imágenes relacionadas con el perfil)
         $tabla = 'perfil';
         $columnas = ['img', 'img_fondo'];
-    
+
         // Buscar en la base de datos si alguna de las columnas tiene este nombre de archivo
         $query = $this->db->table($tabla)
             ->groupStart()
@@ -989,14 +1248,14 @@ class Api extends BaseController {
             ->orWhereIn($columnas[1], [$nombreArchivo]) // Verifica si el nombre coincide con 'img_fondo'
             ->groupEnd()
             ->get();
-    
+
         // Comprobamos si se encontró algún registro
         $registro = $query->getRow();
-    
+
         if (!$registro) {
             return json_debug(['error' => 'La imagen no está registrada en la base de datos.'], 404);
         }
-    
+
         // Determinar qué columna corresponde al archivo a eliminar
         $columnaAActualizar = null;
         if ($registro->{$columnas[0]} === $nombreArchivo) {
@@ -1004,28 +1263,28 @@ class Api extends BaseController {
         } elseif ($registro->{$columnas[1]} === $nombreArchivo) {
             $columnaAActualizar = $columnas[1]; // La imagen corresponde a 'img_fondo'
         }
-    
+
         if (!$columnaAActualizar) {
             return json_debug(['error' => 'No se pudo determinar la columna de la imagen.'], 500);
         }
-    
+
         // Eliminar la referencia en la base de datos (actualizamos la columna con NULL)
         $actualizacion = $this->db->table($tabla)
             ->where('id', $registro->id)
             ->update([$columnaAActualizar => null]);
-    
+
         if (!$actualizacion) {
             return json_debug(['error' => 'No se pudo actualizar la base de datos.'], 500);
         }
-    
+
         // Construir la ruta completa del archivo en el servidor
         $rutaServidor = FCPATH . 'assets/images/perfil/' . $nombreArchivo;
-    
+
         // Verificar que el archivo exista en el servidor
         if (!file_exists($rutaServidor)) {
             return json_debug(['warning' => 'El archivo no existe en el servidor, pero la base de datos fue actualizada.'], 200);
         }
-    
+
         // Intentar eliminar el archivo del servidor
         if (unlink($rutaServidor)) {
             return json_debug(['success' => 'Imagen eliminada correctamente.'], 200);
@@ -1116,7 +1375,7 @@ class Api extends BaseController {
             // custom_error(502, $this->lang); esta comentado por el momento para que no expire el tiempo
         }
 
-        $query = $this->db->query("SELECT * FROM usuarios WHERE id = '$valtoken->id'");
+        $query = $this->db->query("SELECT usuarios.*, roles.nombre, roles.ver, roles.crear, roles.editar, roles.borrar FROM usuarios, roles WHERE usuarios.role_id = roles.id AND usuarios.id = '$valtoken->id'");
         $checkUser = $query->getResult();
         if (!$checkUser) {
             custom_error(501, $this->lang); // si el usuario no existe
@@ -1125,6 +1384,12 @@ class Api extends BaseController {
         $checkUser = $checkUser[0];
 
         unset($checkUser->pasw);
+
+        $checkUser->ver = explode(',', $checkUser->ver);
+        $checkUser->crear = explode(',', $checkUser->crear);
+        $checkUser->editar = explode(',', $checkUser->editar);
+        $checkUser->borrar = explode(',', $checkUser->borrar);
+
         $this->user = $checkUser;
     }
 
@@ -1197,4 +1462,179 @@ class Api extends BaseController {
             $this->activo = 1;
         }
     }
+
+    // CRUD PERFIL
+    public function create_perfil($id = false) {
+        if (!$id) {
+            $this->valToken();
+            $id = $this->user->id;
+        }
+
+        $query = "SELECT * FROM perfil WHERE user_id = '$id'";
+        $query = $this->db->query($query);
+        $datos = $query->getResult();
+
+        if ($datos) {
+            $this->update_perfil();
+        }
+        $require = [
+            "nombre" => "text",
+            "apellido" => "text",
+            "edad" => "number",
+            "tel" => "tel",
+            "direc" => "text",
+            "descripcion" => "text",
+
+        ];
+
+        $valRequire = [];
+        // debug($this->request->getGetPost("tel"), false);
+        foreach ($require as $name => $type) {
+            $value = $this->request->getGetPost($name);
+            if ($value) {
+                $data[$name] = validateValue($value, $type, $this->lang);
+            } else {
+                $data[$name] = null;
+                // $valRequire[] = $name; // al comentar esta linea no se solicita requerido nada.
+            }
+        }
+        // debug($data["tel"]);
+
+        $data["img"] = $this->uploadImage("perfil", "img"); // nombre de carpeta y despues campo de base datos
+        if (!$data["img"]) {
+            // $valRequire[] = "img";
+            $data["img"] = "300x300.png"; // aca esta opcional y tenemos una por defecto, si queremos obligatoria descomentar arriba.
+        }
+
+        $data["img_fondo"] = $this->uploadImage("perfil", "img_fondo"); // nombre de carpeta y despues campo de base datos
+        if (!$data["img_fondo"]) {
+            // $valRequire[] = "img_fondo";
+            $data["img_fondo"] = "300x300.png"; // aca esta opcional y tenemos una por defecto, si queremos obligatoria descomentar arriba.
+        }
+
+        if ($valRequire) {
+            // validar error que te faltan datos
+            custom_error(101, "es", $valRequire);
+        }
+
+        $data["user_id"] = $this->user->id;
+        // $data["activo"] = ($this->request->getGetPost("activo")) ? 1 : 0;
+
+        $insert = $this->db->table("perfil")->insert($data);
+        if (!$insert) {
+            custom_error(204, $this->lang);
+        }
+
+
+        $data["img"] = base_url() . "assets/images/perfil/" . $data["img"];
+        $data["img_fondo"] = base_url() . "assets/images/perfil/" . $data["img_fondo"];
+
+        $id = $this->db->insertID(); // obtenemos el ultimo identificador insertado !
+
+        json_debug((object)array_merge(["id" => $id], $data));
+    }
+
+    public function get_perfil($id = null) {
+        // $this->variables();
+        $this->valToken(); // las unicas que no se pide el token son las consultas publicas,  login y registro
+        // debug($this->user);
+        $id = $this->user->id;
+        $query = "SELECT * FROM perfil WHERE user_id = '$id'";
+        $query = $this->db->query($query);
+        $datos = $query->getResult();
+
+        if (!$datos) {
+            $this->create_perfil();
+        }
+        // json_debug($this->user);
+
+        $datos = $datos[0];
+
+        $datos->img = base_url() . "assets/images/perfil/" . $datos->img;
+        $datos->img_fondo = base_url() . "assets/images/perfil/" . $datos->img_fondo;
+
+        json_debug($datos);
+    }
+
+    public function update_perfil($id = null) {
+        $this->valToken();
+
+        $user_id = $this->user->id;
+        $query = "SELECT * FROM perfil WHERE user_id = '$user_id'";
+        $query = $this->db->query($query);
+        $datos = $query->getResult();
+
+        if (!$datos) {
+            $this->create_perfil();
+        }
+
+        $datos = $datos[0];
+        $id = $datos->id;
+
+        $require = [
+            "nombre" => "text",
+            "apellido" => "text",
+            "edad" => "number",
+            "tel" => "tel",
+            "direc" => "text",
+            "descripcion" => "text",
+
+        ];
+
+        foreach ($require as $name => $type) {
+            $value = $this->request->getGetPost($name);
+            if ($value) {
+                $data[$name] = validateValue($value, $type, $this->lang);
+            }
+        }
+        $data["img"] = $this->uploadImage("perfil", "img"); // nombre de carpeta y despues campo de base datos
+        if (!$data["img"]) {
+            // $valRequire[] = "img";
+            $data["img"] = $datos->img; // aca esta opcional y tenemos una por defecto, si queremos obligatoria descomentar arriba.
+        }
+
+        $data["img_fondo"] = $this->uploadImage("perfil", "img_fondo"); // nombre de carpeta y despues campo de base datos
+        if (!$data["img_fondo"]) {
+            // $valRequire[] = "img_fondo";
+            $data["img_fondo"] = $datos->img_fondo; // aca esta opcional y tenemos una por defecto, si queremos obligatoria descomentar arriba.
+        }
+
+        $data["user_id"] = $this->user->id;
+        // $data["activo"] = ($this->request->getGetPost("activo")) ? 1 : 0;
+
+
+        $update = $this->db->table("perfil")->update($data, ["id" => $id]); // ver query de mysql para entender bien cuales son los 2 paremetros q recibimos (set y where)
+        if (!$update) {
+            custom_error(506, $this->lang, "perfil");
+        }
+
+        $data["img"] = base_url() . "assets/images/perfil/" . $data["img"];
+        $data["img_fondo"] = base_url() . "assets/images/perfil/" . $data["img_fondo"];
+
+
+        json_debug(array_merge((array)$datos, $data));
+    }
+
+    public function delete_perfil($id) {
+
+        $this->valToken(); // las unicas que no se pide el token son las consultas publicas,  login y registro
+
+        $query = "SELECT * FROM perfil WHERE user_id = '$id'";
+        $query = $this->db->query($query);
+        $datos = $query->getResult();
+
+        if (!$datos) {
+            custom_error(504, $this->lang, "perfil");
+        }
+
+        $delete = $this->db->table("perfil")->delete(["user_id" => $id]);
+        if (!$delete) {
+            custom_error(507, $this->lang, "perfil");
+        }
+
+        $datos = $datos[0];
+
+        json_debug($datos);
+    }
+    // FIN CRUD PERFIL
 }

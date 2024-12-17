@@ -110,7 +110,7 @@
            <!-- HASTA! aca form quill. -->
 
            <!-- Form Tiny -->
-            
+
            <!-- HASTA ACA Form Tiny -->
 
            <script src="assets/js/pages/range-sliders.js"></script>
@@ -127,6 +127,14 @@
                <script>
                    let $success = `<?= $success; ?>`;
                    showAlert("success", $success);
+               </script>
+           <?php endif; ?>
+
+
+           <?php if (session()->getFlashdata('error') !== null) : ?>
+               <script>
+                   let $error = '<?= session()->getFlashdata('error') ?>';
+                   showAlert("danger", $error);
                </script>
            <?php endif; ?>
 

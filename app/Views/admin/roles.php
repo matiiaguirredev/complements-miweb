@@ -6,7 +6,7 @@
                 <p class="sub-header">
                     <!-- Add <code>.table-bordered</code> for borders on all sides of the table and cells. -->
                 </p>
-                
+
                 <div class="row">
                     <div class="col-12">
                         <div class="card">
@@ -24,7 +24,9 @@
                                             <!-- <th class="text-center">Posicion</th> -->
                                             <th class="text-center">Nombre Rol</th>
                                             <th class="text-center">Descrip Rol</th>
-                                            <th class="text-center">Opciones</th>
+                                            <?php if (in_array('roles', $user->editar)): ?>
+                                                <th class="text-center">Opciones</th>
+                                            <?php endif; ?>
                                         </tr>
                                     </thead>
 
@@ -35,9 +37,10 @@
                                             // debug($rol, false);
                                         ?>
                                             <tr class="tr-<?= $rol->id; ?>">
-                                                <!-- <th class="text-center" scope="row"><?= $key ; ?></th> -->
+                                                <!-- <th class="text-center" scope="row"><?= $key; ?></th> -->
                                                 <td><?= $rol->nombre; ?></td>
                                                 <td class="text-center "><a class="showdescrip" data-description="<?= $rol->descripcion; ?>">Descripcion</a></td>
+                                                <?php if (in_array('roles', $user->editar)): ?>
                                                 <td class="text-center d-flex justify-content-center gap-1" colspan="">
                                                     <a href="admin/update/roles/<?= $rol->id; ?>"><i class="fa-sharp fa-solid fa-pen-to-square "></i></a>
                                                     <a href="" onclick="deleteroles(<?= $rol->id; ?>)" data-bs-toggle="modal" data-bs-target="#exampleModal"><i class="fa-sharp fa-solid fa-trash"></i></a>
@@ -45,6 +48,7 @@
                                                         <input class="form-check-input ch-roles-<?= $rol->id; ?>" onchange="changeactivoroles(<?= $rol->id; ?>)" type="checkbox" role="switch" id="flexSwitchCheckChecked" <?= ($rol->activo) ? 'checked' : ''; ?>>
                                                     </div>
                                                 </td>
+                                                <?php endif; ?>
                                             </tr>
                                         <?php
                                         }
@@ -62,4 +66,3 @@
         </div> <!-- end card -->
     </div> <!-- end col -->
 </div>
-

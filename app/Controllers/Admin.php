@@ -17,33 +17,6 @@ class Admin extends BaseController {
         $this->db = \Config\Database::connect();
         $this->key = getenv('KEYENCRIPT');
         $this->data = [];
-
-        $this->rolesAllowed = [
-            'Root' => getenv("ROLE_ID_Root"),
-            'Administrador' => getenv("ROLE_ID_Administrador"),
-            'UsuarioEstandar' => getenv("ROLE_ID_UsuarioEstandar"),
-
-        ];
-
-        // $this->rolesAllowed = [
-        //     'consultar' =>[
-        //         'proyect' => [
-        //             'Root' => '',
-        //             'Administrador' => getenv("ROLE_ID_Administrador"),
-        //             'UsuarioEstandar' => getenv("ROLE_ID_UsuarioEstandar"),
-        //         ]
-
-        //     ],
-        //     'crear' => [
-
-        //     ],
-        //     'editar'=>[
-
-        //     ],
-        //     'eliminar' =>[
-
-        //     ],
-        // ];
     }
 
     public function login($var = true) {
@@ -92,7 +65,6 @@ class Admin extends BaseController {
 
     private function sidebar() {
 
-        $this->data['can_manage'] = ($this->user->role_id == $this->rolesAllowed['Root']);
         echo view('admin/sidebar', $this->data);
         // debug($this->data);
     }
@@ -137,8 +109,10 @@ class Admin extends BaseController {
         $this->valtoken();
         $token = $this->request->getCookie("token");
 
+
         $this->data['proyectos'] = [];
         $proyect = json_decode(send_post($this->urlAPI . "proyect", ["token" => $token]));
+        // debug($proyect);
         if (isset($proyect->error)) {
             $this->data['error'] = $proyect->error;
         } else {
@@ -149,7 +123,7 @@ class Admin extends BaseController {
 
         if ($view) {
             $this->data['categorias'] = [];
-            $categorias = json_decode(send_post($this->urlAPI . "categorias?activo=1"));
+            $categorias = json_decode(send_post($this->urlAPI . "categorias?activo=1", ["token" => $token]));
             // debug ($categorias,false);
             if (isset($categorias->error)) {
                 $this->data['error'] = $categorias->error;
@@ -169,12 +143,8 @@ class Admin extends BaseController {
         $view = true;
 
         // Roles permitidos para ver esta funcionalidad
-        if ($this->user->role_id != $this->rolesAllowed['Root']) {
-            $this->data['error'] = 'No tienes los permisos necesarios.';
-            $this->header();
-            $this->sidebar();
-            echo view('/admin/index', $this->data);
-            $this->footer();
+        if (!in_array('proyect', $this->user->crear)) {
+            return redirect()->back()->with('error', 'No tienes los permisos necesarios.');
             exit;
         }
 
@@ -225,6 +195,13 @@ class Admin extends BaseController {
     public function update_proyect($id) {
 
         $this->valtoken();
+
+        // Roles permitidos para ver esta funcionalidad
+        if (!in_array('proyect', $this->user->editar)) {
+            return redirect()->back()->with('error', 'No tienes los permisos necesarios.');
+            exit;
+        }
+
         $view = true;
         $token = $this->request->getCookie("token");
 
@@ -257,7 +234,7 @@ class Admin extends BaseController {
                 $this->data['proyecto'] = $proyect;
             }
             $this->data['categorias'] = [];
-            $categorias = json_decode(send_post($this->urlAPI . "categorias?activo=1"));
+            $categorias = json_decode(send_post($this->urlAPI . "categorias?activo=1", ["token" => $token]));
             if (isset($categorias->error)) {
                 $this->data['error'] = $categorias->error;
             } else {
@@ -293,11 +270,150 @@ class Admin extends BaseController {
 
     // FIN FUNCIONES PROYECTOS
 
+    // FUNCIONES CATEGORIAS
+    public function get_categorias() {
+        $this->valtoken();
+        $token = $this->request->getCookie("token");
+
+        $this->data['categorias'] = [];
+        $categorias = json_decode(send_post($this->urlAPI . "categorias", ["token" => $token]));
+        if (isset($categorias->error)) {
+            $this->data['error'] = $categorias->error;
+        } else {
+            $this->data['categorias'] = $categorias;
+        }
+
+        $this->header();
+        $this->sidebar();
+        echo view('admin/categorias', $this->data);
+        $this->footer();
+    }
+
+    public function create_categorias() {
+
+        $this->valtoken();
+        $view = true;
+
+        // Roles permitidos para ver esta funcionalidad
+        if (!in_array('categorias', $this->user->crear)) {
+            return redirect()->back()->with('error', 'No tienes los permisos necesarios.');
+            exit;
+        }
+
+        if ($this->request->getGetPost()) {
+            $token = $this->request->getCookie("token");
+            $requestData = array_merge($this->request->getGetPost(), ["token" => $token]); // en una variable tengo que guardar el merge 
+            // debug($_FILES,false);
+            foreach ($_FILES as $k => $v) {
+                if (strlen($v['name'])) {
+                    $requestData[$k] = curl_file_create($v['tmp_name'], $v['type'], basename($v['name']));
+                }
+            }
+            $create_categorias = json_decode(send_post($this->urlAPI . "create/categorias", $requestData)); // envio directamente la variable que tiene todo ya concatenado
+            // debug($create_categorias, false);
+            if (isset($create_categorias->error)) {
+                $this->data['error'] = $create_categorias->error;
+            } else {
+                $this->data['success'] = "Categoria creada exitosamente";
+                $this->get_categorias();
+                $view = false;
+            }
+            // debug($create_categorias, false);
+
+        }
+
+        if ($view) {
+            $this->header();
+            $this->sidebar();
+            echo view('admin/newcategorias');
+            $this->footer();
+        }
+    }
+
+    public function update_categorias($id) {
+
+        $this->valtoken();
+
+        // Roles permitidos para ver esta funcionalidad
+        if (!in_array('categorias', $this->user->editar)) {
+            return redirect()->back()->with('error', 'No tienes los permisos necesarios.');
+            exit;
+        }
+
+        $view = true;
+        $token = $this->request->getCookie("token");
+
+        if ($this->request->getGetPost()) {
+
+            $requestData = array_merge($this->request->getGetPost(), ["token" => $token]); // en una variable tengo que guardar el merge 
+            // debug($_FILES);
+            foreach ($_FILES as $k => $v) {
+                if (strlen($v['name'])) {
+                    $requestData[$k] = curl_file_create($v['tmp_name'], $v['type'], basename($v['name']));
+                }
+            }
+            $update_categorias = json_decode(send_post($this->urlAPI . "update/categorias/" . $id, $requestData)); // envio directamente la variable que tiene todo ya concatenado
+            // debug($update_categorias, false);
+            if (isset($update_categorias->error)) {
+                $this->data['error'] = $update_categorias->error;
+            } else {
+                $this->data['success'] = "Categoria modificada exitosamente";
+                $this->get_categorias();
+                $view = false;
+            }
+            // debug($update_redes, false);
+
+        }
+
+        if ($view) {
+            $this->data['categorias'] = [];
+            $categorias = json_decode(send_post($this->urlAPI . "categorias/" . $id, ["token" => $token]));
+            if (isset($categorias->error)) {
+                $this->data['error'] = $categorias->error;
+            } else {
+                $this->data['categorias'] = $categorias;
+            }
+            $this->header();
+            $this->sidebar();
+            echo view('admin/edit-categorias');
+            $this->footer();
+        }
+    }
+
+    public function delete_categorias($id) {
+        // $this->valtoken();
+        $token = $this->request->getCookie("token");
+
+        // $this->data = [];
+        if ($id) {
+            $requestData = ["token" => $token]; // Datos para enviar a la API
+            $delete_categorias = json_decode(send_post($this->urlAPI . "delete/categorias/" . $id, $requestData));
+
+            if (isset($delete_categorias->error)) {
+                $this->data['error'] = $delete_categorias->error;
+            } else {
+                // El proyecto se eliminó exitosamente
+                $this->data['success'] = "Categoria eliminada exitosamente";
+            }
+        }
+        $this->get_categorias();
+        // header("Location: /admin/proyects");
+        // exit();
+    }
+
+    // FIN FUNCIONES CATEGORIAS
+
+
     // CRUD USUARIOS
 
     public function get_usuarios() {
         $this->valtoken();
         $token = $this->request->getCookie("token");
+
+        if (!in_array('usuarios', $this->user->ver)) {
+            return redirect()->to(base_url('/admin'))->with('error', 'Pagina no encontrada');
+            exit;
+        }
 
         $this->data['usuarios'] = [];
         $usuarios = json_decode(send_post($this->urlAPI . "usuarios", ["token" => $token]));
@@ -322,6 +438,13 @@ class Admin extends BaseController {
 
         $this->valtoken();
         $view = true;
+
+        // Roles permitidos para ver esta funcionalidad
+        if (!in_array('usuarios', $this->user->crear)) {
+            return redirect()->to(base_url('/admin'))->with('error', 'Pagina no encontrada');
+            exit;
+        }
+
         if ($this->request->getGetPost()) {
             $token = $this->request->getCookie("token");
             $requestData = array_merge($this->request->getGetPost(), ["token" => $token]); // en una variable tengo que guardar el merge 
@@ -369,6 +492,12 @@ class Admin extends BaseController {
         $this->valtoken();
         $view = true;
         $token = $this->request->getCookie("token");
+
+        // Roles permitidos para ver esta funcionalidad
+        if (!in_array('usuarios', $this->user->editar)) {
+            return redirect()->to(base_url('/admin'))->with('error', 'Pagina no encontrada');
+            exit;
+        }
 
         if ($this->request->getGetPost()) {
 
@@ -440,6 +569,11 @@ class Admin extends BaseController {
         $this->valtoken();
         $token = $this->request->getCookie("token");
 
+        if (!in_array('roles', $this->user->ver)) {
+            return redirect()->to(base_url('/admin'))->with('error', 'Pagina no encontrada');
+            exit;
+        }
+
         $this->data['roles'] = [];
         $roles = json_decode(send_post($this->urlAPI . "roles", ["token" => $token]));
         if (isset($roles->error)) {
@@ -463,8 +597,14 @@ class Admin extends BaseController {
         $this->valtoken();
         $token = $this->request->getCookie("token");
         $view = true;
-        if ($this->request->getGetPost()) {
 
+        // Roles permitidos para ver esta funcionalidad
+        if (!in_array('roles', $this->user->crear)) {
+            return redirect()->to(base_url('/admin'))->with('error', 'Pagina no encontrada');
+            exit;
+        }
+
+        if ($this->request->getGetPost()) {
             $requestData = array_merge($this->request->getGetPost(), ["token" => $token]); // en una variable tengo que guardar el merge 
 
             // Procesar todas las acciones (ver, crear, editar, borrar)
@@ -487,89 +627,165 @@ class Admin extends BaseController {
         }
 
         if ($view) {
-
-            $this->data['secciones'] = [
-                [
-                    'alias' => 'proyect',
-                    'titulo' => 'Proyectos'
-                ],
-                [
-                    'alias' => 'lenguaje',
-                    'titulo' => 'Lenguaje'
-                ],
-                [
-                    'alias' => 'redes',
-                    'titulo' => 'Redes'
-                ],
-                [
-                    'alias' => 'categorias',
-                    'titulo' => 'Categorías'
-                ],
-                [
-                    'alias' => 'servicios',
-                    'titulo' => 'Servicios'
-                ],
-                [
-                    'alias' => 'curriculum',
-                    'titulo' => 'Currículum'
-                ],
-                [
-                    'alias' => 'perfil',
-                    'titulo' => 'Perfil'
-                ],
-                [
-                    'alias' => 'hobies',
-                    'titulo' => 'Hobbies'
-                ],
-                [
-                    'alias' => 'contacto',
-                    'titulo' => 'Contacto'
-                ],
-                [
-                    'alias' => 'secciones',
-                    'titulo' => 'Secciones'
-                ],
-                [
-                    'alias' => 'navbar',
-                    'titulo' => 'Navbar'
-                ],
-                [
-                    'alias' => 'txtbanner',
-                    'titulo' => 'Texto Banner'
-                ],
-                [
-                    'alias' => 'clientes',
-                    'titulo' => 'Clientes'
-                ],
-                [
-                    'alias' => 'testimonios',
-                    'titulo' => 'Testimonios'
-                ],
-                [
-                    'alias' => 'blog',
-                    'titulo' => 'Blog'
-                ],
-                [
-                    'alias' => 'blogCat',
-                    'titulo' => 'Categorías del Blog'
-                ],
-                [
-                    'alias' => 'blogComm',
-                    'titulo' => 'Comentarios del Blog'
-                ],
-                [
-                    'alias' => 'blogComm2',
-                    'titulo' => 'Comentarios del Blog (Versión 2)'
-                ],
-                [
-                    'alias' => 'usuarios',
-                    'titulo' => 'Usuarios'
-                ],
-                [
-                    'alias' => 'roles',
-                    'titulo' => 'Roles'
-                ],
-            ];
+            if ($this->user->id != 1) {  
+                $this->data['secciones'] = [
+                    [
+                        'alias' => 'proyect',
+                        'titulo' => 'Proyectos'
+                    ],
+                    [
+                        'alias' => 'lenguaje',
+                        'titulo' => 'Lenguaje'
+                    ],
+                    [
+                        'alias' => 'redes',
+                        'titulo' => 'Redes'
+                    ],
+                    [
+                        'alias' => 'categorias',
+                        'titulo' => 'Categorías'
+                    ],
+                    [
+                        'alias' => 'servicios',
+                        'titulo' => 'Servicios'
+                    ],
+                    [
+                        'alias' => 'curriculum',
+                        'titulo' => 'Currículum'
+                    ],
+                    [
+                        'alias' => 'perfil',
+                        'titulo' => 'Perfil'
+                    ],
+                    [
+                        'alias' => 'hobies',
+                        'titulo' => 'Hobbies'
+                    ],
+                    [
+                        'alias' => 'contacto',
+                        'titulo' => 'Contacto'
+                    ],
+                    [
+                        'alias' => 'secciones',
+                        'titulo' => 'Secciones'
+                    ],
+                    [
+                        'alias' => 'navbar',
+                        'titulo' => 'Navbar'
+                    ],
+                    [
+                        'alias' => 'txtbanner',
+                        'titulo' => 'Texto Banner'
+                    ],
+                    [
+                        'alias' => 'clientes',
+                        'titulo' => 'Clientes'
+                    ],
+                    [
+                        'alias' => 'testimonios',
+                        'titulo' => 'Testimonios'
+                    ],
+                    [
+                        'alias' => 'blog',
+                        'titulo' => 'Blog'
+                    ],
+                    [
+                        'alias' => 'blogCat',
+                        'titulo' => 'Categorías del Blog'
+                    ],
+                    [
+                        'alias' => 'blogComm',
+                        'titulo' => 'Comentarios del Blog'
+                    ],
+                    [
+                        'alias' => 'blogComm2',
+                        'titulo' => 'Comentarios del Blog (Versión 2)'
+                    ],
+                ];
+            } else {
+                $this->data['secciones'] = [
+                    [
+                        'alias' => 'proyect',
+                        'titulo' => 'Proyectos'
+                    ],
+                    [
+                        'alias' => 'lenguaje',
+                        'titulo' => 'Lenguaje'
+                    ],
+                    [
+                        'alias' => 'redes',
+                        'titulo' => 'Redes'
+                    ],
+                    [
+                        'alias' => 'categorias',
+                        'titulo' => 'Categorías'
+                    ],
+                    [
+                        'alias' => 'servicios',
+                        'titulo' => 'Servicios'
+                    ],
+                    [
+                        'alias' => 'curriculum',
+                        'titulo' => 'Currículum'
+                    ],
+                    [
+                        'alias' => 'perfil',
+                        'titulo' => 'Perfil'
+                    ],
+                    [
+                        'alias' => 'hobies',
+                        'titulo' => 'Hobbies'
+                    ],
+                    [
+                        'alias' => 'contacto',
+                        'titulo' => 'Contacto'
+                    ],
+                    [
+                        'alias' => 'secciones',
+                        'titulo' => 'Secciones'
+                    ],
+                    [
+                        'alias' => 'navbar',
+                        'titulo' => 'Navbar'
+                    ],
+                    [
+                        'alias' => 'txtbanner',
+                        'titulo' => 'Texto Banner'
+                    ],
+                    [
+                        'alias' => 'clientes',
+                        'titulo' => 'Clientes'
+                    ],
+                    [
+                        'alias' => 'testimonios',
+                        'titulo' => 'Testimonios'
+                    ],
+                    [
+                        'alias' => 'blog',
+                        'titulo' => 'Blog'
+                    ],
+                    [
+                        'alias' => 'blogCat',
+                        'titulo' => 'Categorías del Blog'
+                    ],
+                    [
+                        'alias' => 'blogComm',
+                        'titulo' => 'Comentarios del Blog'
+                    ],
+                    [
+                        'alias' => 'blogComm2',
+                        'titulo' => 'Comentarios del Blog (Versión 2)'
+                    ],
+                    [
+                        'alias' => 'usuarios',
+                        'titulo' => 'Usuarios'
+                    ],
+                    [
+                        'alias' => 'roles',
+                        'titulo' => 'Roles'
+                    ],
+                ];
+            }
 
             // Recuperar datos del rol, si existe
             if (isset($roles)) {
@@ -598,6 +814,11 @@ class Admin extends BaseController {
         $view = true;
         $token = $this->request->getCookie("token");
 
+        // Roles permitidos para ver esta funcionalidad
+        if (!in_array('roles', $this->user->editar)) {
+            return redirect()->to(base_url('/admin'))->with('error', 'Pagina no encontrada');
+            exit;
+        }
         // Proceso de actualización
         if ($this->request->getGetPost()) {
             $requestData = array_merge($this->request->getGetPost(), ["token" => $token]);
@@ -641,91 +862,167 @@ class Admin extends BaseController {
                 }
             }
 
-
             // Opciones disponibles para el select
-            $this->data['secciones'] = [
-                [
-                    'alias' => 'proyect',
-                    'titulo' => 'Proyectos'
-                ],
-                [
-                    'alias' => 'lenguaje',
-                    'titulo' => 'Lenguaje'
-                ],
-                [
-                    'alias' => 'redes',
-                    'titulo' => 'Redes'
-                ],
-                [
-                    'alias' => 'categorias',
-                    'titulo' => 'Categorías'
-                ],
-                [
-                    'alias' => 'servicios',
-                    'titulo' => 'Servicios'
-                ],
-                [
-                    'alias' => 'curriculum',
-                    'titulo' => 'Currículum'
-                ],
-                [
-                    'alias' => 'perfil',
-                    'titulo' => 'Perfil'
-                ],
-                [
-                    'alias' => 'hobies',
-                    'titulo' => 'Hobbies'
-                ],
-                [
-                    'alias' => 'contacto',
-                    'titulo' => 'Contacto'
-                ],
-                [
-                    'alias' => 'secciones',
-                    'titulo' => 'Secciones'
-                ],
-                [
-                    'alias' => 'navbar',
-                    'titulo' => 'Navbar'
-                ],
-                [
-                    'alias' => 'txtbanner',
-                    'titulo' => 'Texto Banner'
-                ],
-                [
-                    'alias' => 'clientes',
-                    'titulo' => 'Clientes'
-                ],
-                [
-                    'alias' => 'testimonios',
-                    'titulo' => 'Testimonios'
-                ],
-                [
-                    'alias' => 'blog',
-                    'titulo' => 'Blog'
-                ],
-                [
-                    'alias' => 'blogCat',
-                    'titulo' => 'Categorías del Blog'
-                ],
-                [
-                    'alias' => 'blogComm',
-                    'titulo' => 'Comentarios del Blog'
-                ],
-                [
-                    'alias' => 'blogComm2',
-                    'titulo' => 'Comentarios del Blog (Versión 2)'
-                ],
-                [
-                    'alias' => 'usuarios',
-                    'titulo' => 'Usuarios'
-                ],
-                [
-                    'alias' => 'roles',
-                    'titulo' => 'Roles'
-                ],
-            ];
-            
+            if ($this->user->id != 1) {  
+                $this->data['secciones'] = [
+                    [
+                        'alias' => 'proyect',
+                        'titulo' => 'Proyectos'
+                    ],
+                    [
+                        'alias' => 'lenguaje',
+                        'titulo' => 'Lenguaje'
+                    ],
+                    [
+                        'alias' => 'redes',
+                        'titulo' => 'Redes'
+                    ],
+                    [
+                        'alias' => 'categorias',
+                        'titulo' => 'Categorías'
+                    ],
+                    [
+                        'alias' => 'servicios',
+                        'titulo' => 'Servicios'
+                    ],
+                    [
+                        'alias' => 'curriculum',
+                        'titulo' => 'Currículum'
+                    ],
+                    [
+                        'alias' => 'perfil',
+                        'titulo' => 'Perfil'
+                    ],
+                    [
+                        'alias' => 'hobies',
+                        'titulo' => 'Hobbies'
+                    ],
+                    [
+                        'alias' => 'contacto',
+                        'titulo' => 'Contacto'
+                    ],
+                    [
+                        'alias' => 'secciones',
+                        'titulo' => 'Secciones'
+                    ],
+                    [
+                        'alias' => 'navbar',
+                        'titulo' => 'Navbar'
+                    ],
+                    [
+                        'alias' => 'txtbanner',
+                        'titulo' => 'Texto Banner'
+                    ],
+                    [
+                        'alias' => 'clientes',
+                        'titulo' => 'Clientes'
+                    ],
+                    [
+                        'alias' => 'testimonios',
+                        'titulo' => 'Testimonios'
+                    ],
+                    [
+                        'alias' => 'blog',
+                        'titulo' => 'Blog'
+                    ],
+                    [
+                        'alias' => 'blogCat',
+                        'titulo' => 'Categorías del Blog'
+                    ],
+                    [
+                        'alias' => 'blogComm',
+                        'titulo' => 'Comentarios del Blog'
+                    ],
+                    [
+                        'alias' => 'blogComm2',
+                        'titulo' => 'Comentarios del Blog (Versión 2)'
+                    ],
+                ];
+            } else {
+                $this->data['secciones'] = [
+                    [
+                        'alias' => 'proyect',
+                        'titulo' => 'Proyectos'
+                    ],
+                    [
+                        'alias' => 'lenguaje',
+                        'titulo' => 'Lenguaje'
+                    ],
+                    [
+                        'alias' => 'redes',
+                        'titulo' => 'Redes'
+                    ],
+                    [
+                        'alias' => 'categorias',
+                        'titulo' => 'Categorías'
+                    ],
+                    [
+                        'alias' => 'servicios',
+                        'titulo' => 'Servicios'
+                    ],
+                    [
+                        'alias' => 'curriculum',
+                        'titulo' => 'Currículum'
+                    ],
+                    [
+                        'alias' => 'perfil',
+                        'titulo' => 'Perfil'
+                    ],
+                    [
+                        'alias' => 'hobies',
+                        'titulo' => 'Hobbies'
+                    ],
+                    [
+                        'alias' => 'contacto',
+                        'titulo' => 'Contacto'
+                    ],
+                    [
+                        'alias' => 'secciones',
+                        'titulo' => 'Secciones'
+                    ],
+                    [
+                        'alias' => 'navbar',
+                        'titulo' => 'Navbar'
+                    ],
+                    [
+                        'alias' => 'txtbanner',
+                        'titulo' => 'Texto Banner'
+                    ],
+                    [
+                        'alias' => 'clientes',
+                        'titulo' => 'Clientes'
+                    ],
+                    [
+                        'alias' => 'testimonios',
+                        'titulo' => 'Testimonios'
+                    ],
+                    [
+                        'alias' => 'blog',
+                        'titulo' => 'Blog'
+                    ],
+                    [
+                        'alias' => 'blogCat',
+                        'titulo' => 'Categorías del Blog'
+                    ],
+                    [
+                        'alias' => 'blogComm',
+                        'titulo' => 'Comentarios del Blog'
+                    ],
+                    [
+                        'alias' => 'blogComm2',
+                        'titulo' => 'Comentarios del Blog (Versión 2)'
+                    ],
+                    [
+                        'alias' => 'usuarios',
+                        'titulo' => 'Usuarios'
+                    ],
+                    [
+                        'alias' => 'roles',
+                        'titulo' => 'Roles'
+                    ],
+                ];
+            }
+
             // Extraer las secciones seleccionadas previamente para cada acción
             // Estas secciones se asignan a variables correspondientes a cada acción
             foreach ($actions as $action) {
@@ -793,5 +1090,4 @@ class Admin extends BaseController {
 
         // debug($checkToken);
     }
-
 }

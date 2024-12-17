@@ -28,31 +28,34 @@
                                             <th class="text-center">Apellido</th>
                                             <th class="text-center">Rol</th>
                                             <th class="text-center">Pass</th>
-                                            <th class="text-center">Opciones</th>
+                                            <?php if (in_array('usuarios', $user->editar)): ?>
+                                                <th class="text-center">Opciones</th>
+                                            <?php endif; ?>
                                         </tr>
                                     </thead>
 
                                     <tbody>
                                         <?php
-                                        // debug($usuarios);
-                                        foreach ($usuarios as $key => $user) {
-                                            // debug($user, false);
+                                        foreach ($usuarios as $key => $us) {
+                                            // debug($us, false);
                                         ?>
-                                            <tr class="tr-<?= $user->id; ?>">
+                                            <tr class="tr-<?= $us->id; ?>">
                                                 <!-- <th class="text-center" scope="row"><?= $key; ?></th> -->
-                                                <td><?= $user->usuario; ?></td>
-                                                <td><?= $user->email; ?></td>
-                                                <td><?= $user->nombre; ?></td>
-                                                <td><?= $user->apellido; ?></td>
-                                                <td><?= $user->role_nombre; ?></td>
-                                                <td class="text-center "><a class="showdescrip" data-description="<?= $user->pasw; ?>">Ver password</a></td>
-                                                <td class="text-center d-flex justify-content-center gap-1" colspan="">
-                                                    <a href="admin/update/usuarios/<?= $user->id; ?>"><i class="fa-sharp fa-solid fa-pen-to-square "></i></a>
-                                                    <a href="" onclick="deleteusuarios(<?= $user->id; ?>)" data-bs-toggle="modal" data-bs-target="#exampleModal"><i class="fa-sharp fa-solid fa-trash"></i></a>
-                                                    <div class="form-check form-switch">
-                                                        <input class="form-check-input ch-usuarios-<?= $user->id; ?>" onchange="changeactivousuarios(<?= $user->id; ?>)" type="checkbox" role="switch" id="flexSwitchCheckChecked" <?= ($user->activo) ? 'checked' : ''; ?>>
-                                                    </div>
-                                                </td>
+                                                <td><?= $us->usuario; ?></td>
+                                                <td><?= $us->email; ?></td>
+                                                <td><?= $us->nombre; ?></td>
+                                                <td><?= $us->apellido; ?></td>
+                                                <td><?= $us->role_id; ?></td>
+                                                <td class="text-center "><a class="showdescrip" data-description="<?= $us->pasw; ?>">Ver password</a></td>
+                                                <?php if (in_array('usuarios', $user->editar)): ?>
+                                                    <td class="text-center d-flex justify-content-center gap-1" colspan="">
+                                                        <a href="admin/update/usuarios/<?= $us->id; ?>"><i class="fa-sharp fa-solid fa-pen-to-square "></i></a>
+                                                        <a href="" onclick="deleteusuarios(<?= $us->id; ?>)" data-bs-toggle="modal" data-bs-target="#exampleModal"><i class="fa-sharp fa-solid fa-trash"></i></a>
+                                                        <div class="form-check form-switch">
+                                                            <input class="form-check-input ch-usuarios-<?= $us->id; ?>" onchange="changeactivousuarios(<?= $us->id; ?>)" type="checkbox" role="switch" id="flexSwitchCheckChecked" <?= ($us->activo) ? 'checked' : ''; ?>>
+                                                        </div>
+                                                    </td>
+                                                <?php endif; ?>
                                             </tr>
                                         <?php
                                         }

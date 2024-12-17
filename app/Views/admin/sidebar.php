@@ -31,72 +31,57 @@
 
             <li class="menu-title">Custom</li>
 
-            <!-- <li class="menu-item">
-                    <a href="#menuProyects" data-bs-toggle="collapse" class="menu-link waves-effect waves-light">
-                        <span class="menu-icon"><i class="fa-duotone fa-book"></i></span>
-                        <span class="menu-text"> Proyectos </span>
+            <?php if (in_array('roles', array_merge($user->ver, $user->crear, $user->editar, $user->borrar))): ?>
+                <li class="menu-item">
+                    <a href="#menuRoles" data-bs-toggle="collapse" class="menu-link waves-effect waves-light">
+                        <span class="menu-icon"><i class="fa-solid fa-pen-ruler"></i></span>
+                        <span class="menu-text"> Roles </span>
                         <span class="menu-arrow"></span>
                     </a>
-                    <div class="collapse" id="menuProyects">
+                    <div class="collapse" id="menuRoles">
                         <ul class="sub-menu">
                             <li class="menu-item">
-                                <a class='menu-link' href='/admin/proyect'>
-                                    <span class="menu-text">Lista de Proyectos</span>
+                                <a class='menu-link' href='/admin/roles'>
+                                    <span class="menu-text">Lista de Roles</span>
                                 </a>
                             </li>
-                            <li class="menu-item">
-                                <a class='menu-link' href='/admin/create/proyect'>
-                                    <span class="menu-text">Nuevo Proyecto</span>
-                                </a>
-                            </li>
+                            <?php if (in_array('roles', $user->crear)): ?>
+                                <li class="menu-item">
+                                    <a class='menu-link' href='/admin/create/roles'>
+                                        <span class="menu-text">Nuevos Roles</span>
+                                    </a>
+                                </li>
+                            <?php endif; ?>
                         </ul>
                     </div>
-                </li> -->
+                </li>
+            <?php endif; ?>
 
-
-            <li class="menu-item">
-                <a href="#menuRoles" data-bs-toggle="collapse" class="menu-link waves-effect waves-light">
-                    <span class="menu-icon"><i class="fa-solid fa-pen-ruler"></i></span>
-                    <span class="menu-text"> Roles </span>
-                    <span class="menu-arrow"></span>
-                </a>
-                <div class="collapse" id="menuRoles">
-                    <ul class="sub-menu">
-                        <li class="menu-item">
-                            <a class='menu-link' href='/admin/roles'>
-                                <span class="menu-text">Lista de Roles</span>
-                            </a>
-                        </li>
-                        <li class="menu-item">
-                            <a class='menu-link' href='/admin/create/roles'>
-                                <span class="menu-text">Nuevos Roles</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </li>
-
-            <li class="menu-item">
-                <a href="#menuUsuarios" data-bs-toggle="collapse" class="menu-link waves-effect waves-light">
-                    <span class="menu-icon"><i class="fa-duotone fa-solid fa-users"></i></span>
-                    <span class="menu-text"> Usuarios </span>
-                    <span class="menu-arrow"></span>
-                </a>
-                <div class="collapse" id="menuUsuarios">
-                    <ul class="sub-menu">
-                        <li class="menu-item">
-                            <a class='menu-link' href='/admin/usuarios'>
-                                <span class="menu-text">Lista de Usuarios</span>
-                            </a>
-                        </li>
-                        <li class="menu-item">
-                            <a class='menu-link' href='/admin/create/usuarios'>
-                                <span class="menu-text">Nuevos Usuarios</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </li>
+            <?php if (in_array('usuarios', array_merge($user->ver, $user->crear, $user->editar, $user->borrar))): ?>
+                <li class="menu-item">
+                    <a href="#menuUsuarios" data-bs-toggle="collapse" class="menu-link waves-effect waves-light">
+                        <span class="menu-icon"><i class="fa-duotone fa-solid fa-users"></i></span>
+                        <span class="menu-text"> Usuarios </span>
+                        <span class="menu-arrow"></span>
+                    </a>
+                    <div class="collapse" id="menuUsuarios">
+                        <ul class="sub-menu">
+                            <li class="menu-item">
+                                <a class='menu-link' href='/admin/usuarios'>
+                                    <span class="menu-text">Lista de Usuarios</span>
+                                </a>
+                            </li>
+                            <?php if (in_array('usuarios', $user->crear)): ?>
+                                <li class="menu-item">
+                                    <a class='menu-link' href='/admin/create/usuarios'>
+                                        <span class="menu-text">Nuevos Usuarios</span>
+                                    </a>
+                                </li>
+                            <?php endif; ?>
+                        </ul>
+                    </div>
+                </li>
+            <?php endif; ?>
 
             <li class="menu-item">
                 <a href="#menuMultilevel" data-bs-toggle="collapse" class="menu-link waves-effect waves-light">
@@ -111,7 +96,7 @@
                                 <span class="menu-text">Lista de Proyectos</span>
                             </a>
                         </li>
-                        <?php if (isset($can_manage) && $can_manage): ?>
+                        <?php if (in_array('proyect', $user->crear)): ?>
                             <li class="menu-item">
                                 <a class='menu-link' href='/admin/create/proyect'>
                                     <span class="menu-text">Nuevo Proyecto</span>
@@ -133,11 +118,13 @@
                                             <span class="menu-text">Lista de categorias</span>
                                         </a>
                                     </li>
-                                    <li class="menu-item">
-                                        <a href="/admin/create/categorias" class="menu-link">
-                                            <span class="menu-text">Crear categorias</span>
-                                        </a>
-                                    </li>
+                                    <?php if (in_array('proyect', $user->crear)): ?>
+                                        <li class="menu-item">
+                                            <a href="/admin/create/categorias" class="menu-link">
+                                                <span class="menu-text">Crear categorias</span>
+                                            </a>
+                                        </li>
+                                    <?php endif; ?>
                                 </ul>
                             </div>
                         </li>
@@ -165,14 +152,14 @@
                 <div class="logo-box">
                     <!-- Brand Logo Light -->
                     <a class='logo-light' href='/admin/'>
-                        <img src="assets/images/logo-light.png" alt="logo" class="logo-lg" height="22">
-                        <img src="assets/images/logo-sm.png" alt="small logo" class="logo-sm" height="22">
+                        <!-- <img src="assets/images/logo-light.png" alt="logo" class="logo-lg" height="22"> -->
+                        <!-- <img src="assets/images/logo-sm.png" alt="small logo" class="logo-sm" height="22"> -->
                     </a>
 
                     <!-- Brand Logo Dark -->
                     <a class='logo-dark' href='/admin/'>
-                        <img src="assets/images/logo-dark.png" alt="dark logo" class="logo-lg" height="22">
-                        <img src="assets/images/logo-sm.png" alt="small logo" class="logo-sm" height="22">
+                        <!-- <img src="assets/images/logo-dark.png" alt="dark logo" class="logo-lg" height="22"> -->
+                        <!-- <img src="assets/images/logo-sm.png" alt="small logo" class="logo-sm" height="22"> -->
                     </a>
                 </div>
 
